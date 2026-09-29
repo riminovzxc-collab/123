@@ -481,16 +481,21 @@ window.Scenes = (() => {
   function paint(g, w, h, spec){
     const fn = P[spec.s] || P.cafe; g.save(); fn(g, w, h, mulberry(seedOf(spec.s, spec.k)), spec.k || 1); g.restore();
   }
+  // настоящие фото пары: spec.p — ключ в DATA.photos; иначе рисуем процедурную сцену
+  const photo = spec => spec && spec.p && window.DATA && window.DATA.photos ? window.DATA.photos[spec.p] : null;
   function url(spec, w, h, withFx = true){
+    const ph = photo(spec); if (ph) return ph.src;
     const key = `${spec.s}:${spec.k}:${w}x${h}:${withFx ? 1 : 0}`; if (cache.has(key)) return cache.get(key);
     const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
     paint(g, w, h, spec); if (withFx) fx(g, w, h, spec, 1.3); grain(g, w, h);
     const u = c.toDataURL('image/jpeg', .84); cache.set(key, u); return u;
   }
   function frame(g, w, h, spec, img, t, dur){
-    const p = Math.min(1, t / (dur || 6)), sc = 1.04 + p * .08, dx = (spec.k % 2 ? -1 : 1) * p * w * .03;
-    g.save(); g.translate(w / 2 + dx, h / 2); g.scale(sc, sc); g.drawImage(img, -w / 2, -h / 2, w, h); g.restore();
-    fx(g, w, h, spec, t);
+    const p = Math.min(1, t / (dur || 6)), sc = 1.04 + p * .08, dx = ((spec.k || 1) % 2 ? -1 : 1) * p * w * .03;
+    const iw = img.naturalWidth || w, ih = img.naturalHeight || h, cover = Math.max(w / iw, h / ih), dw = iw * cover, dh = ih * cover;
+    const ph = photo(spec), fy = ph && ph.pos ? parseFloat(ph.pos.split(' ')[1]) / 100 : .5, oy = (h - dh) * (fy - .5);
+    g.save(); g.translate(w / 2 + dx, h / 2 + oy); g.scale(sc, sc); g.drawImage(img, -dw / 2, -dh / 2, dw, dh); g.restore();
+    if (ph) { if (spec.fx) fx(g, w, h, spec.fx, t); } else fx(g, w, h, spec, t);
   }
-  return {url, paint, fx, frame, mulberry, seedOf};
+  return {url, paint, fx, frame, mulberry, seedOf, photo};
 })();
